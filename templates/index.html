@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>四則演算ゲーム</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            width: 48%;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+        }
+        .user-side {
+            background-color: #e3f2fd;
+        }
+        .cpu-side {
+            background-color: #ffebee;
+        }
+        .timer {
+            font-size: 24px;
+            text-align: center;
+        }
+    </style>
+    <script>
+        let timer;
+        let cpuTimer;
+
+        function updateTimer() {
+            fetch('/timer')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("timer").innerText = Math.ceil(data.remaining_time) + "秒";
+                    if (data.remaining_time <= 0) {
+                        clearInterval(timer);
+                        clearInterval(cpuTimer);  // CPUの計算も停止
+                        alert("時間切れ！あなたの正解数は " + document.getElementById("correctAnswers").innerText +
+                              "、PCの正解数は " + document.getElementById("cpuCorrectAnswers").innerText + " です。");
+                        document.getElementById("answerInput").disabled = true;
+                        document.getElementById("submitButton").disabled = true;
+                    }
+                });
+        }
+
+        function updateCpuCalculation() {
+            fetch('/cpu_calculation')
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.cpu_active) {
+                        clearInterval(cpuTimer);  // タイマーが切れたらCPU計算を停止
+                        return;
+                    }
+                    document.getElementById("cpuProblem").innerText = "PCの問題: " + data.cpu_problem;
+                    document.getElementById("cpuCorrectAnswers").innerText = "PCの正解数: " + data.cpu_result;
+                    document.getElementById("cpuLastAnswer").innerText = "PCの解答: " + data.cpu_last_answer;
+                });
+        }
+
+        function handleEnter(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                document.getElementById("submitButton").click();
+            }
+        }
+
+        window.onload = function() {
+            timer = setInterval(updateTimer, 1000);
+            cpuTimer = setInterval(updateCpuCalculation, 0.1);  // 1秒ごとにCPUの計算を更新
+            document.getElementById("answerInput").focus();
+            document.getElementById("answerInput").addEventListener("keydown", handleEnter);
+        }
+    </script>
+</head>
+<body>
+    <div class="container user-side">
+        <h1>ユーザー</h1>
+        <p class="timer" id="timer">10秒</p>
+        <form method="post">
+            <p>問題: {{ problem }}</p>
+            <input type="text" id="answerInput" name="answer" required placeholder="答えを入力" autofocus>
+            <button type="submit" id="submitButton">送信</button>
+        </form>
+        <h2>正解数: <span id="correctAnswers">{{ user_result }}</span></h2>
+        <form method="post">
+            <button type="submit" name="reset" id="resetButton">リセット</button>
+        </form>
+    </div>
+
+    <div class="container cpu-side">
+        <h1>CPU</h1>
+        <p class="timer" id="timer">10秒</p>
+        <p id="cpuProblem">PCの問題: {{ cpu_problem }}</p>
+        <p id="cpuLastAnswer">PCの解答: {{ cpu_last_answer }}</p>
+        <h2 id="cpuCorrectAnswers">PCの正解数: {{ cpu_result }}</h2>
+    </div>
+</body>
+</html>
